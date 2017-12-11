@@ -1,0 +1,1 @@
+_declspec(dllexport) double solveBySimpson(double, double, double, double);

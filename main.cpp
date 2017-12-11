@@ -3,6 +3,9 @@
 #include <math.h>
 #include <stdio.h>
 #include <string>
+#include <conio.h>
+
+typedef double (*function)(double arg1, double arg2, double left, double right);
 
 using namespace std;
 
@@ -78,18 +81,6 @@ double solveBySimpson(double arg1, double arg2, double left, double right) {
 		I1=(h/3)*sum;
 	}
 	return I1;
-}
-
-double solveBySquares(double arg1, double arg2, double left, double right) {
-	int n = 30; // count of squares
-	double s=(solveFunction(arg1, arg2, left) + solveFunction(arg1, arg2, right))/2;
-	double h=(right-left)/n;
-	for (int i=1; i<=n-1; i++)
-	{ 
-		s+=solveFunction(arg1, arg2, left+i*h);
-	}
-	double I=h*s;
-	return I;
 }
 
 // *** Main window
@@ -303,6 +294,13 @@ LRESULT CALLBACK SimpsonWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 
 		break;
 	}
+	case WM_SYSCOMMAND:
+		if (wParam == SC_MINIMIZE) {
+			DefWindowProc(hWnd, message, wParam, lParam);
+			::SetForegroundWindow(mainWnd);
+		} else
+			DefWindowProc(hWnd, message, wParam, lParam);
+		break;
 	case WM_COMMAND: {
 		if (lParam == (LPARAM)buttonCalculate) {
 				WCHAR value[5];
@@ -404,8 +402,20 @@ LRESULT CALLBACK SquaresWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		ShowWindow(labelAnswer, SW_SHOWNORMAL);
 		break;
 	}
+	case WM_SYSCOMMAND:
+		if (wParam == SC_MINIMIZE) {
+			DefWindowProc(hWnd, message, wParam, lParam);
+			::SetForegroundWindow(mainWnd);
+		} else
+			DefWindowProc(hWnd, message, wParam, lParam);
+		break;
 	case WM_COMMAND: {
 		if (lParam == (LPARAM)buttonCalculate) {
+			// подключение библиотеки
+			HMODULE hModule = LoadLibrary(L"squares_solution.dll");
+			if(hModule == NULL) {
+				 MessageBox(hWnd, L"библиотека dll не найдена", L"Ошибка", MB_OK | MB_TASKMODAL);
+			} else {
 				WCHAR value[5];
 				GetWindowText(editTextFrom, value, 5);
 				if (ContainsErrors(value)) {
@@ -436,10 +446,17 @@ LRESULT CALLBACK SquaresWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 					break;
 				}
 				double x2Value = ToDouble(value);
-				double answerBySquares = solveBySquares(x1Value, x2Value, from, to);
-				
-				std::wstring answer = L"Ответ: " + std::to_wstring(answerBySquares);
-				SetWindowText(labelAnswer, answer.c_str());
+				//try to get function from dll
+				function solveBySquares = (function)GetProcAddress(hModule, "solveBySquares");
+				if (solveBySquares == NULL) {
+					MessageBox(hWnd, L"не получилось загрузить функцию из dll", L"Ошибка", MB_OK | MB_TASKMODAL);
+				} else {
+					double answerBySquares = solveBySquares(x1Value, x2Value, from, to);
+					std::wstring answer = L"Ответ: " + std::to_wstring(answerBySquares);
+					SetWindowText(labelAnswer, answer.c_str());
+				}
+			 }
+			 FreeLibrary(hModule);
 		}
 		break;
 	}
